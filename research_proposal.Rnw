@@ -1,0 +1,154 @@
+% !TEX TS-program = pdflatex
+% !TEX encoding = UTF-8 Unicode
+
+% This is a simple template for a LaTeX document using the "article" class.
+% See "book", "report", "letter" for other types of document.
+
+\documentclass[11pt]{article} % use larger type; default would be 10pt
+\usepackage{amsmath}
+\usepackage{setspace}
+\usepackage{float}
+  \usepackage{indentfirst}
+\usepackage{fancyhdr} % Headers and footers
+
+
+\usepackage[utf8]{inputenc} % set input encoding (not needed with XeLaTeX)
+\doublespacing % Makes article double spaced
+
+%%% Examples of Article customizations
+% These packages are optional, depending whether you want the features they provide.
+% See the LaTeX Companion or other references for full information.
+
+%%% PAGE DIMENSIONS
+\usepackage{geometry} % to change the page dimensions
+\geometry{a4paper} % or letterpaper (US) or a5paper or....
+% \geometry{margins=2in} % for example, change the margins to 2 inches all round
+% \geometry{landscape} % set up the page for landscape
+%   read geometry.pdf for detailed page layout information
+
+\usepackage{graphicx} % support the \includegraphics command and options
+\DeclareGraphicsExtensions{.png,.jpg,.eps}
+\graphicspath{ {C:\Users\Stephen\Google Drive\Documents\School\Micro\Paper Ideas\Math Model\After Nov 17th\Graphs} }
+
+% \usepackage[parfill]{parskip} % Activate to begin paragraphs with an empty line rather than an indent
+
+%%% PACKAGES
+\usepackage{booktabs} % for much better looking tables
+\usepackage{array} % for better arrays (eg matrices) in maths
+\usepackage{paralist} % very flexible & customisable lists (eg. enumerate/itemize, etc.)
+\usepackage{verbatim} % adds environment for commenting out blocks of text & for better verbatim
+\usepackage{subfig} % make it possible to include more than one captioned figure/table in a single float
+\usepackage{threeparttable}
+% These packages are all incorporated in the memoir class to one degree or another...
+
+%%% HEADERS & FOOTERS
+\usepackage{fancyhdr} % This should be set AFTER setting up the page geometry
+\pagestyle{fancy} % options: empty , plain , fancy
+\renewcommand{\headrulewidth}{0pt} % customise the layout...
+\lhead{}\chead{}\rhead{}
+\lfoot{}\cfoot{\thepage}\rfoot{}
+
+%%% SECTION TITLE APPEARANCE
+\usepackage{sectsty}
+\allsectionsfont{\sffamily\mdseries\upshape} % (See the fntguide.pdf for font help)
+% (This matches ConTeXt defaults)
+
+%%% ToC (table of contents) APPEARANCE
+\usepackage[nottoc,notlof,notlot]{tocbibind} % Put the bibliography in the ToC
+\usepackage[titles,subfigure]{tocloft} % Alter the style of the Table of Contents
+\renewcommand{\cftsecfont}{\rmfamily\mdseries\upshape}
+\renewcommand{\cftsecpagefont}{\rmfamily\mdseries\upshape} % No bold!
+
+%%% END Article customizations
+
+
+\usepackage[svgnames]{xcolor} % Required to specify font color
+
+\newcommand*{\plogo}{\fbox{$\mathcal{PL}$}} % Generic publisher logo
+\pagenumbering{gobble}
+
+\setlength{\headheight}{13.6pt}
+\fancyhead[C]{Working Paper $\ast$ November 2014 $\ast$ Draft 1} % Custom header text
+%----------------------------------------------------------------------------------------
+%  TITLE PAGE
+%----------------------------------------------------------------------------------------
+
+\newcommand*{\titleAT}{\begingroup % Create the command for including the title page in the document
+\newlength{\drop} % Command for generating a specific amount of whitespace
+\drop=0.1\textheight % Define the command as 10% of the total text height
+
+\rule{\textwidth}{1pt}\par % Thick horizontal line
+\vspace{2pt}\vspace{-\baselineskip} % Whitespace between lines
+\rule{\textwidth}{0.4pt}\par % Thin horizontal line
+
+\vspace{\drop} % Whitespace between the top lines and title
+\centering % Center all text
+\textcolor{black}{ % Red font color
+{\Huge An Analysis on Equity}\\[0.5\baselineskip] % Title line 1
+{\Huge and Offers for }\\[0.5\baselineskip] % Title line 2
+{\Huge Shark Tank}} % Title line 3
+
+\vspace{0.25\drop} % Whitespace between the title and short horizontal line
+\rule{0.3\textwidth}{0.4pt}\par % Short horizontal line under the title
+\vspace{\drop} % Whitespace between the thin horizontal line and the author name
+
+{\Large \textsc{Steve Bronder}}\par % Author name
+
+\vfill % Whitespace between the author name and publisher text
+{\large \textcolor{black}{\textit{Fall 2014}}}\\[0.5\baselineskip] % Publisher logo
+{\large \textsc{Duquesne University Mathematics Department}}\par % Publisher
+
+\vspace*{\drop} % Whitespace under the publisher text
+
+\rule{\textwidth}{0.4pt}\par % Thin horizontal line
+\vspace{2pt}\vspace{-\baselineskip} % Whitespace between lines
+\rule{\textwidth}{1pt}\par % Thick horizontal line
+
+\endgroup}
+
+
+
+\begin{document}
+
+\titleAT
+\clearpage
+\newpage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\begin{abstract}
+\emph{The television show Shark Tank is an American television series in which entreprenuers pitch their company and then ask "sharks", successfull entrepreneurs, for investment in exchange for an amount of equity. The purpose of this analysis is to study whether the amount of equity and investment asked for has an effect on whether or not a shark makes an offer. The sharks investigated will be Mark Cuban, John Daymond, Robert Herjavec, and Kevin O'leary. If any one of them make an offer the pitch is considered a success.
+}
+ 
+\end{abstract}
+\newpage
+\section{Introduction}
+The television show Shark Tank is an American television series in which entreprenuers pitch their company and then ask "sharks", successfull entrepreneurs, for investment in exchange for an amount of equity. The purpose of this analysis is to study whether the amount of equity and investment asked for has an effect on the probability a shark makes an offer. The sharks investigated will be Mark Cuban, John Daymond, Robert Herjavec, and Kevin O'leary. If any one of them make an offer the pitch is considered a success.\\
+
+This paper will give results for a logit regression in order to predict the probability of a successful pitch, given variables such as dollar and equity asked for, revenue, and profit. 
+
+<<offergraph,cache=TRUE,fig.align='center',echo=FALSE,message=FALSE>>=
+library(ggplot2)
+sharks <- read.csv("./sharkdata2.csv",header=TRUE,na.strings="NULL")
+sharks$date <- paste(sharks$season,sharks$episode,sep="")
+sharks$date <- as.numeric(sharks$date)
+
+sharks$who.offer <- as.factor(sharks$who.offer)
+
+
+
+figure.offer <- qplot(who.offer,data=sharks[sharks$who.offer!="None",],
+fill=who.offer,xlab=" Which Shark Makes an Offer")+scale_x_discrete(breaks=NULL)
+
+ggsave("./figure_offer.png",figure.offer)
+@
+
+\begin{figure}[ht]
+  \begin{center}
+  \caption{Amount of Offers by Shark}
+    \includegraphics[width=1.0\textwidth]{figure_offer.png}
+    \end{center}
+\end{figure}
+
+
+\end{document}
