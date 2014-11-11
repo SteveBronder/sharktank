@@ -1,3 +1,10 @@
 base
+C50
+caret
+doParallel
+foreach
 ggplot2
+iterators
 knitr
+lattice
+plyr

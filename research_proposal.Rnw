@@ -10,7 +10,8 @@
 \usepackage{float}
   \usepackage{indentfirst}
 \usepackage{fancyhdr} % Headers and footers
-
+\usepackage[boxed, linesnumbered]{algorithm2e}
+\providecommand{\SetAlgoLined}{\SetLine}
 
 \usepackage[utf8]{inputenc} % set input encoding (not needed with XeLaTeX)
 \doublespacing % Makes article double spaced
@@ -117,15 +118,15 @@
 \setcounter{page}{1}
 
 \begin{abstract}
-\emph{The television show Shark Tank is an American television series in which entreprenuers pitch their company and then ask "sharks", successfull entrepreneurs, for investment in exchange for an amount of equity. The purpose of this analysis is to study whether the amount of equity and investment asked for has an effect on whether or not a shark makes an offer. The sharks investigated will be Mark Cuban, John Daymond, Robert Herjavec, and Kevin O'leary. If any one of them make an offer the pitch is considered a success.
+\emph{The television show Shark Tank is an American television series in which entreprenuers pitch their company and then ask "sharks", successfull entrepreneurs, for investment in exchange for an amount of equity. The purpose of this analysis is to build a rule based model to classif companies into "Offer" and "No offer" groups. The sharks investigated will be Mark Cuban, John Daymond, Robert Herjavec, and Kevin O'leary. If any one of them make an offer the pitch is considered a success.
 }
  
 \end{abstract}
 \newpage
 \section{Introduction}
-The television show Shark Tank is an American television series in which entreprenuers pitch their company and then ask "sharks", successfull entrepreneurs, for investment in exchange for an amount of equity. The purpose of this analysis is to study whether the amount of equity and investment asked for has an effect on the probability a shark makes an offer. The sharks investigated will be Mark Cuban, John Daymond, Robert Herjavec, and Kevin O'leary. If any one of them make an offer the pitch is considered a success.\\
+The television show Shark Tank is an American television series in which entreprenuers pitch their company and then ask "sharks", successfull entrepreneurs, for investment in exchange for an amount of equity. The purpose of this analysis is to build a rule based model to classify companies into "Offer" and "No offer" groups. The sharks investigated will be Mark Cuban, John Daymond, Robert Herjavec, and Kevin O'leary. If any one of them make an offer the pitch is considered a success.\\
 
-This paper will give results for a logit regression in order to predict the probability of a successful pitch, given variables such as dollar and equity asked for, revenue, and profit. 
+This paper will give results of a set of rules created from a process called C5.0 in order to predict whether a pitch receives an offer or not. Variables used in this analysis include a company's evaluation, dollar amount asked for, equity asked for, number of months profitable, revenue, and profits. The rest of this paper will go as follows. Section two will give an overview of the data gathering and summary statistics. Section three will go into detail about the C5.0 model and the algorithm used for resampling. Section four will give the rules and predictions for the model.
 
 <<offergraph,cache=TRUE,fig.align='center',echo=FALSE,message=FALSE>>=
 library(ggplot2)
@@ -143,12 +144,129 @@ fill=who.offer,xlab=" Which Shark Makes an Offer")+scale_x_discrete(breaks=NULL)
 ggsave("./figure_offer.png",figure.offer)
 @
 
-\begin{figure}[ht]
-  \begin{center}
-  \caption{Amount of Offers by Shark}
-    \includegraphics[width=1.0\textwidth]{figure_offer.png}
-    \end{center}
+\section{Data}
+
+Data was gathered from the CSV file located on tvquotes.net\footnote{http://www.sharktank.tvquotes.net/} and loaded into R. Data exists for four seasons of Shark Tank with each observation being a pitch from an entrepreneur\footnote{There are 235 total observations}. The dataset contains 29 different variables, but this paper only uses seven of them. We analyze a company's evaluation, dollar amount asked for, equity asked for, number of months profitable, revenue, and profits. Each observation is classified by whether or not a shark received an offer from any of the sharks accounted for in this analysis. Some sharks were left out due to long periods of not being on the show such as Jeff Foxworthy and Kevin Harrington. The data is preprocessed to remove the mean and place all variables inside of one standard deviation. This is done in order to minimize erroneous rules due to large differences in variable means and errors \\
+
+<<stats,cache=TRUE>>=
+#Read in data from working directory
+sharks <- read.csv("./sharkdata3.csv",header=TRUE,na.strings="NULL")
+# There is a NA row for some reason
+sharks <- sharks[1:235,]
+# Create factor for Offer or no Offer
+sharks$offer.inv <- as.factor(ifelse(sharks$Inv.offer==1,"Offer","No.Offer"))
+# Reset who offered as factor
+sharks$who.offer <- as.factor(sharks$who.offer)
+# Create evaluation variable
+sharks$evaluation <- sharks$ask_dollar/sharks$ask_equity
+@
+
+<<xtablestat,cache=TRUE,results='asis',echo=FALSE>>=
+stat.sub <- subset(sharks,select=c(offer.inv ,evaluation, ask_dollar , ask_equity , profit_term_mos , revenue , profit))
+stat.sub[,2:7] <- scale(stat.sub[,2:7])
+xtable::xtable(summary(stat.sub[,4:6]))
+xtable::xtable(summary(stat.sub[,1:3]),caption="Summary Statistics Shark Tank Data")
+@
+
+\section{Model: C5.0}
+
+The model we use is known as C5.0, originally developed by Ross Quinlan\footnote{Quinlan, J. R. C4.5: Programs for Machine Learning. Morgan Kaufmann Publishers, 1993.} and integrated into $R$ by Max Kuhn\footnote{M. Kuhn and K. Johnson, Applied Predictive Modeling, Springer 2013}, is a statistical classifier based off of decision trees. At each node of the decision tree, C5.0 chooses the attribute of the data that most effectively splits its set of samples into subsets enriched in one class or the other. This is done through an information statistic that represents the average number of bits\footnote{This is just a unit of measure. It's taken from the number of real bits needed to compute the huffman algorithm.} required to code samples into two seperate splits. Let $p$ be defiened as the probability of the first class being correct for an arbatrary, but particular set of observations.
+
+\begin{align}
+info&=-[p\;log_{2}p+(1-p)\;log_{2}(1-p)]
+\end{align}
+
+Suppose p is the proportion of samples in the first class such that p = .53. From equation one, the average number of bits of information to guess the true class would be .997. This means we would need quite a lot of information in order to predict the class properly. Now suppose p=.10, then the information would be .46 bits, meaning given any random value in the samples it would be easier to randomly guess a class and be correct. Using this concept of information for splitting we choose the split which seperates the data into two sets which maximizes the information gain of the split. Let $n_{i+}$ denote the number of observations with a particular class and $n_{+i}$ the number of observations in a split with $n$ being the total number of observations. Then;
+
+\begin{align}
+gain(split)&=info(\text{prior to split}) - info(\text{after split})\\
+info(\text{prior to split})&=-\Big[\frac{n_{1+}}{n}\times{log_{2}\Big(\frac{n_{1+}}{n}\Big)}\Big] - \Big[\frac{n_{2+}}{n}\times{log_{2}\Big(\frac{n_{2+}}{n}\Big)}\Big]\\
+info(\text{after split})&= \frac{n_{2+}}{n}info(\text{greater}) + \frac{n_{2+}}{n}info(\text{less than})\\
+info(\text{greater})&= -\Big[\frac{n_{11}}{n_{1+}}\times{log_{2}\Big(\frac{n_{11}}{n_{+1}}\Big)}\Big]- \Big[\frac{n_{12}}{n_{+1}}\times{log_{2}\Big(\frac{n_{12}}{n_{+1}}\Big)}\Big]
+\end{align}
+
+Because our predictor values contain missing values we allow C5.0 to use several imputation methods. When calculating the information gain, the information statistics are calculated using the non-missing data then scaled by the fraction of non-missing data at the split. C5.0 also can treat missing values as an extra branch of the node. In addition, missing values are split fractionally on each node by the size of each class at the node.\\
+
+Once the initial tree is grown, transformed and things such as boosting, pruning, predictor importance, winnowing, parallelizing, and blah blah are established we will talk about them here, however I am very tired.
+
+
+
+
+<<model,cache=TRUE>>=
+
+library(caret)
+
+library(doParallel)
+ cl <- makeCluster(3)
+ 
+ registerDoParallel(cl)
+
+c50Grid <- expand.grid(.trials = c(1:14),
+                       .model = c("tree", "rules"),
+                       .winnow = c(TRUE, FALSE))
+
+ctrl <- trainControl(method = "repeatedcv", 
+             repeats = 10,
+             returnResamp = "final",
+             savePredictions = FALSE,
+             classProbs = TRUE,
+             summaryFunction = defaultSummary,
+             selectionFunction = "best",
+             preProcOptions = list(thresh = 0.95, ICAcomp = 3, k = 5),
+             allowParallel = TRUE)
+
+
+c5Fitvac <- train(offer.inv ~evaluation+ ask_dollar + ask_equity + profit_term_mos + revenue + profit,
+                  data = sharks,
+                  method = "C5.0",
+                  tuneGrid = c50Grid,
+                  metric = "Kappa", # not needed it is so by default
+                  trControl = ctrl,
+                  importance=TRUE, # not needed
+                  preProc = c("center", "scale"))
+@
+
+\section{results}
+
+ After running the data for our iterations.
+
+\begin{figure}[h!]
+  \caption{Kappa from repeated cross validation and boosting grouped by winnowing.}
+  \centering
+    \includegraphics[width=1.0\textwidth]{kapp_plot}
 \end{figure}
 
 
+
+
+\begin{algorithm}[h!]
+   \label{A:tune}
+   \SetAlgoLined
+   \RestyleAlgo{plain}
+   \DontPrintSemicolon
+  \eIf{ask equity $\leq$ -1.035349}{
+   Offer\;
+   }{
+   \eIf{Profitable Months $\leq$ -0.9589436}{
+   \Return No Offer\;
+   }{
+   \eIf{Revenue $>$ 0.5757602}{
+   \Return No Offer\;
+   }{
+   \eIf{Revenue $\leq$ 0.2292188}{
+   \Return No Offer
+   }{\Return Offer}
+   }
+   }
+  } 
+\end{algorithm}
+
+<<clasisfyres,cache=TRUE,results='asis',echo=FALSE>>=
+classify <- matrix(c(44,3,6,18),2,2,byrow=TRUE)
+
+colnames(classify) <- c("No Offer", "Offer")
+rownames(classify) <- c("No Offer", "Offer")
+
+xtable::xtable(classify,caption = "Confusion Matrix for Shark Offers")
+@
 \end{document}
